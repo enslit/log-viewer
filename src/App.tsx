@@ -1,17 +1,17 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useState } from "react";
 import FileDropzone from "./components/FileDropzone/FileDropzone";
 import Loader from "./components/Loader/Loader";
 import {
   Button,
   createTheme,
   CssBaseline,
-  TextField,
   ThemeProvider,
   Typography,
 } from "@mui/material";
 import { ILog, parse } from "./utils/logFileParser";
 import { LogView } from "./components/LogView/LogView";
 import Box from "@mui/material/Box";
+import { Filter } from "./components/Filter/Filter";
 
 const theme = createTheme({
   palette: {
@@ -24,7 +24,6 @@ function App() {
   const [error, setError] = useState("");
   const [fileContent, setFileContent] = useState<string[]>([]);
   const [logs, setLogs] = useState<ILog[]>([]);
-  const [filter, setFilter] = useState("");
 
   const handleUploadFile = (files: File[]) => {
     setLoading(true);
@@ -58,25 +57,21 @@ function App() {
   };
 
   const filterLogs = useCallback(
-    (value: string) => {
+    async (value: string) => {
+      setLoading(true);
       const filtered = fileContent.filter((row) => row.includes(value));
-      parse(filtered)
-        .then((res) => setLogs(res))
-        .catch((error) => setError(error.message))
-        .finally(() => setLoading(false));
+      const parsedLogs = await parse(filtered);
+      setLogs(parsedLogs);
+      setLoading(false);
     },
     [fileContent]
   );
-
-  useEffect(() => {
-    filterLogs(filter);
-  }, [filter, filterLogs]);
 
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <Box sx={{ padding: 2 }}>
-        {fileContent && !loading && (
+        {fileContent && (
           <Box
             sx={{
               display: "flex",
@@ -86,12 +81,7 @@ function App() {
               marginBottom: 2,
             }}
           >
-            <TextField
-              size="small"
-              label="Filter"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-            />
+            <Filter onFilter={filterLogs} onInput={() => setLoading(true)} />
             <Button variant="outlined" color="error" onClick={handleReset}>
               Clear
             </Button>
@@ -100,7 +90,9 @@ function App() {
         {fileContent.length > 0 && logs.length > 0 && !loading && (
           <LogView logs={logs} />
         )}
-        {fileContent.length === 0 && <FileDropzone onLoad={handleUploadFile} />}
+        {fileContent.length === 0 && !loading && (
+          <FileDropzone onLoad={handleUploadFile} />
+        )}
         {loading && <Loader />}
         {error && <Typography color="error">{error}</Typography>}
       </Box>
